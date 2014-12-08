@@ -44,5 +44,54 @@ chain n
     | even n = n:chain (n `div` 2)
     | odd n  = n:chain (n * 3 + 1)
 
-numLongChains = length (filter isLong (map chain [1..100]))  
-    where isLong xs = length xs > 15 
+--numLongChains = length (filter isLong (map chain [1..100]))  
+--    where isLong xs = length xs > 15 
+
+-- LAMBDAS
+numLongChains = length (filter (\ xs -> length xs > 15) (map chain [1..100]))
+
+-- Equivalent forms:
+--addThree :: (Num a) => a -> a -> a -> a
+--addThree x y z = x + y + z
+
+--addThree :: (Num a) => a -> a -> a -> a
+--addThree = \x -> \y -> \z -> x + y + z
+
+--flip' :: (a -> b -> c) -> b -> a -> c  
+--flip' f = \x y -> f y x
+
+-- FOLDING
+--sum' :: (Num a) => [a] -> a
+--sum' xs = foldl (\acc a -> a + acc) 0 xs
+
+--The lambda function (\acc x -> acc + x) is the same as (+).
+--We can omit the xs as the parameter because calling foldl (+) 0 
+--will return a function that takes a list. 
+--Generally, if you have a function like foo a = bar b a,
+--you can rewrite it as foo = bar b, because of currying.
+sum' :: (Num a) => [a] -> a
+sum' = foldl (+) 0
+
+
+-- FUNCTION APPLICATION $
+--($) :: (a -> b) -> a -> b  
+--f $ x = f x 
+
+-- FUNCTION COMPOSITION .
+--(.) :: => (b -> c) -> (a -> b) -> a -> c
+--f . g = \x -> f (g x)
+
+-- With multiple parameters
+--sum (replicate 5 (max 6.7 8.9))
+--(sum . replicate 5 . max 6.7) 8.9
+--sum . replicate 5 . max 6.7 $ 8.9
+
+oddSquareSum :: Integer  
+oddSquareSum = sum . takeWhile (<10000) . filter odd . map (^2) $ [1..]
+
+oddSquareSum :: Integer
+oddSquareSum =
+    let oddSquares = filter odd $ map (^2) [1..]
+        belowLimit = takeWhile (<10000) oddSquares
+    in  sum belowLimit
+    
