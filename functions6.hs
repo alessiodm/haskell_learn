@@ -28,7 +28,8 @@ data Triple t = Triple { first :: t
 data LockerState = Taken | Free deriving (Show, Eq)  
   
 type Code = String  
-  
+
+-- data Either a b = Left a | Right b deriving (Eq, Ord, Read, Show)
 type LockerMap = Map.Map Int (LockerState, Code)
 lockerLookup :: Int -> LockerMap -> Either String Code  
 lockerLookup lockerNumber map =   
@@ -63,3 +64,36 @@ treeElem x (Node a left right)
     | x < a = treeElem x left
     | x > a = treeElem x right
 
+
+-- Emulating JavaScript
+class YesNo a where
+    yesno :: a -> Bool
+
+instance YesNo Int where
+    yesno 0 = False
+    yesno _ = True
+
+instance YesNo [a] where
+    yesno [] = False
+    yesno _ = True
+
+instance YesNo Bool where  
+    yesno = id -- Id takes a parameter and return itself
+
+instance YesNo (Maybe a) where
+    yesno (Just _) = True
+    yesno Nothing = False
+
+instance YesNo (Tree a) where  
+    yesno EmptyTree = False  
+    yesno _ = True
+
+yesnoIf :: (YesNo y) => y -> a -> a -> a
+yesnoIf x yescase nocase = if yesno x then yescase else nocase
+
+-- instance Functor Maybe where
+--      fmap f (Just a) = Just (f a)
+--      fmap f Nothing = Nothing
+
+class Tofu t where  
+    tofu :: j a -> t a j 
