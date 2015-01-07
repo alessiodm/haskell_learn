@@ -1,0 +1,82 @@
+
+Functors and Monoids
+======================================
+
+Remembering the functor definition:
+
+```
+class Functor f where
+    fmap :: (a -> b) -> f a -> f b
+```
+
+Using functors for mapping IO data:
+
+```
+instance Functor IO where  
+    fmap f action = do  
+        result <- action  
+        return (f result)
+
+-- THE FOLLOWING...
+main = do line <- getLine   
+          let line' = reverse line  
+          putStrLn $ "You said " ++ line' ++ " backwards!"  
+          putStrLn $ "Yes, you really said" ++ line' ++ " backwards!"
+
+-- ...IS THE SAME AS:
+main = do line <- fmap reverse getLine  
+          putStrLn $ "You said " ++ line ++ " backwards!"  
+          putStrLn $ "Yes, you really said" ++ line ++ " backwards!"
+
+```
+
+Mapping one function over a function has to produce a function, just like mapping a function over a Maybe has to produce a Maybe and mapping a function over a list has to produce a list. Et voilà:
+
+```
+instance Functor ((->) r) where  
+    fmap f g = (\x -> f (g x))
+```
+
+What does the type ```fmap :: (a -> b) -> (r -> a) -> (r -> b)``` for this instance tell us? Function composition!
+In fact, another way to write this instance would be:
+
+```
+instance Functor ((->) r) where  
+    fmap = (.)
+```
+
+This makes the revelation that using fmap over functions is just composition sort of obvious.
+
+
+## Functor Laws ##
+
+These laws aren't enforced by Haskell automatically, so you have to test them out yourself.
+
+The first functor law states that if we map the id function over a functor, the functor that we get back should be the same as the original functor.
+
+```fmap id = id``
+
+The second law says that composing two functions and then mapping the resulting function over a functor should be the same as first mapping one function over the functor and then mapping the other one. To write it in another way, for any functor F, the following should hold:
+
+```fmap (f . g) F = fmap f (fmap g F)```
+
+Here is an example of NON obeying functor:
+
+```
+data CMaybe a = CNothing | CJust Int a deriving (Show)
+
+instance Functor CMaybe where  
+    fmap f CNothing = CNothing  
+    fmap f (CJust counter x) = CJust (counter+1) (f x)
+```
+
+It violates the first law:
+
+```
+ghci> fmap id (CJust 0 "haha")  
+CJust 1 "haha"  
+ghci> id (CJust 0 "haha")  
+CJust 0 "haha"
+```
+
+## Applicative Functors ##
