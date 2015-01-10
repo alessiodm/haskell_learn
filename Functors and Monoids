@@ -79,4 +79,146 @@ ghci> id (CJust 0 "haha")
 CJust 0 "haha"
 ```
 
+
 ## Applicative Functors ##
+
+We see how by mapping "multi-parameter" functions over functors, we get functors that contain functions inside them.
+
+```
+ghci> let a = fmap (*) [1,2,3,4]  
+ghci> :t a  
+a :: [Integer -> Integer]  
+ghci> fmap (\f -> f 9) a  
+[9,18,27,36]
+``
+
+Note that fmap 'instanciated' by the function type is function composition! That's why for the one above, we can map _functions that take these functions as parameters_ over them.
+
+But what if we have a functor value of Just (3 *) and a functor value of Just 5 and we want to take out the function from Just (3 *) and map it over Just 5? With normal functors, we're out of luck, because all they support is just mapping normal functions over existing functors.
+
+We need the ```Applicative``` typeclass:
+
+```
+class (Functor f) => Applicative f where  
+    pure :: a -> f a  
+    (<*>) :: f (a -> b) -> f a -> f b
+```
+
+The implementation for Maybe is:
+
+```
+instance Applicative Maybe where  
+    pure = Just  
+    Nothing <*> _ = Nothing  
+    (Just f) <*> something = fmap f something
+```
+
+instance Applicative [] where
+    pure x = [x]
+    (fh|ft) <*> (h|t) = (fmap fh h | ft <*> t)
+
+We can do something like:
+
+```
+ghci> Just (+3) <*> Just 9  
+Just 12  
+ghci> pure (+3) <*> Just 10  
+Just 13  
+ghci> pure (+3) <*> Just 9  
+Just 12  
+ghci> Just (++"hahah") <*> Nothing  
+Nothing  
+ghci> Nothing <*> Just "woot"  
+Nothing
+ghci> pure (+) <*> Just 3 <*> Just 5  
+Just 8  
+ghci> pure (+) <*> Just 3 <*> Nothing  
+Nothing  
+ghci> pure (+) <*> Nothing <*> Just 5  
+Nothing
+```
+
+This becomes even more handy and apparent if we consider the fact that pure f <*> x equals fmap f x. This is why Control.Applicative exports a function called <$>, which is just fmap as an infix operator. Here's how it's defined:
+
+```
+(<$>) :: (Functor f) => (a -> b) -> f a -> f b  
+f <$> x = fmap f x
+```
+
+```
+ghci> (++) <$> Just "johntra" <*> Just "volta"  
+Just "johntravolta"
+ghci> (++) "johntra" "volta"  
+"johntravolta"
+```
+
+Considering lists:
+
+```
+ghci> [(+),(*)] <*> [1,2] <*> [3,4]  
+[4,5,5,6,3,4,6,8]
+```
+
+Note that we have all permutations!!! Remember the all possible products greater than 50?
+
+```
+ghci> [ x*y | x <- [2,5,10], y <- [8,10,11]]     
+[16,20,22,40,50,55,80,100,110]
+ghci> (*) <$> [2,5,10] <*> [8,10,11]  
+[16,20,22,40,50,55,80,100,110]
+ghci> filter (>50) $ (*) <$> [2,5,10] <*> [8,10,11]  
+[55,80,100,110]
+```
+
+Considering the IO type class:
+
+```
+instance Applicative IO where  
+    pure = return  
+    a <*> b = do  
+        f <- a  
+        x <- b  
+        return (f x)
+```
+
+So this is an example of two equivalent IO operations:
+
+```
+myAction :: IO String  
+myAction = do  
+    a <- getLine  
+    b <- getLine  
+    return $ a ++ b
+```
+
+```
+myAction :: IO String  
+myAction = (++) <$> getLine <*> getLine 
+```
+
+Since the result is anyway an IO action, we can use a ```do``` easily:
+
+```
+main = do  
+    a <- (++) <$> getLine <*> getLine  
+    putStrLn $ "The two lines concatenated turn out to be: " ++ a
+```
+
+When we do something like ```(+) <$> Just 3 <*> Just 5```, we're using + on values that might or might not be there, which also results in a value that might or might not be there. When we do ```(+) <$> (+10) <*> (+5)```, we're using + on the future return values of (+10) and (+5) and the result is also something that will produce a value only when called with a parameter.
+
+### Applicative Functors Laws ###
+
+We just list them without explaining all of them:
+
+```
+pure f <*> x = fmap f x
+pure id <*> v = v
+pure (.) <*> u <*> v <*> w = u <*> (v <*> w)
+pure f <*> pure x = pure (f x)
+u <*> pure y = pure ($ y) <*> u
+```
+
+
+## The newtype Keyword
+
+
