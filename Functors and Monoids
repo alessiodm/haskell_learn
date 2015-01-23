@@ -221,4 +221,91 @@ u <*> pure y = pure ($ y) <*> u
 
 ## The newtype Keyword
 
+There are more ways for a list to be an applicative functor: one way is to have <*> take every function out of the list that is its left parameter and apply it to every value in the list that is on the right, the second way is to take the first function on the left side of <*> and apply it to the first value on the right, then take the second function from the list on the left side and apply it to the second value on the right, and so on. the ```ZipList a``` type was introduced for this reason. That's how the ZipList is defined:
 
+```
+newtype ZipList a = ZipList { getZipList :: [a] }
+```
+
+(using record syntax so that we automatically get a function that extracts a list from a ZipList)
+
+Instead of the data keyword, the newtype keyword is used. Now why is that? Well for one, newtype is faster. If you use the data keyword to wrap a type, there's some overhead to all that wrapping and unwrapping when your program is running. But if you use newtype, Haskell knows that you're just using it to wrap an existing type into a new type (hence the name), because you want it to be the same internally but have a different type. With that in mind, Haskell can get rid of the wrapping and unwrapping once it resolves which value is of what type.
+
+So why not just use newtype all the time instead of data then? Well, when you make a new type from an existing type by using the newtype keyword, you can only have one value constructor and that value constructor can only have one field. But with data, you can make data types that have several value constructors and each constructor can have zero or more fields.
+
+The newtype keyword in Haskell is made exactly for these cases when we want to just take one type and wrap it in something to present it as another type.
+
+We mentioned that newtype is usually faster than data. The only thing that can be done with newtype is turning an existing type into a new type, so internally, Haskell can represent the values of types defined with newtype just like the original ones, only it has to keep in mind that the their types are now distinct. This fact means that not only is newtype faster, it's also lazier.
+
+Remembering what lazy means:
+
+```
+ghci> undefined  
+*** Exception: Prelude.undefined  
+ghci> head [3,4,5,undefined,2,undefined]  
+3
+```
+
+This difference in behavior may seem trivial, but it's actually pretty important because it helps us realize that even though types defined with data and newtype behave similarly from the programmer's point of view because they both have value constructors and fields, they are actually two different mechanisms. Whereas data can be used to make your own types from scratch, newtype is for making a completely new type out of an existing type. Pattern matching on newtype values isn't like taking something out of a box (like it is with data), it's more about making a direct conversion from one type to another.
+
+
+### Recap: type vs. newtype vs. data
+
+The ```type``` keyword is for making type synonyms. What that means is that we just give another name to an already existing type so that the type is easier to refer to.
+
+The ```newtype``` keyword is for taking existing types and wrapping them in new types, mostly so that it's easier to make them instances of certain type classes. When we use newtype to wrap an existing type, the type that we get is separate from the original type.
+
+The ```data``` keyword is for making your own data types and with them, you can go hog wild. They can have as many constructors and fields as you wish and can be used to implement any algebraic data type by yourself.
+
+
+## Monoids
+
+A monoid is a function that:
+
+ - Takes two parameters
+ - The parameters and the returned value have the same type
+ - There exists such a value that doesn't change other values when used with the binary function
+ - Moreover, it has the associativity property (e.g., (3+4)+5 = 3+(4+5))
+
+Note the monoids are not commutative.
+
+In Haskell it is defined like that:
+
+```
+class Monoid m where  
+    mempty :: m  
+    mappend :: m -> m -> m  
+    mconcat :: [m] -> m  
+    mconcat = foldr mappend mempty
+```
+
+Laws of monoids:
+
+```
+mempty `mappend` x = x
+x `mappend` mempty = x
+(x `mappend` y) `mappend` z = x `mappend` (y `mappend` z)
+```
+
+It's possible to make instances of Monoid that don't follow these rules, but such instances are of no use to anyone because when using the Monoid type class, we rely on its instances acting like monoids.
+
+Here is an interesting use of the Ordering Monoid properties: comparing to strings, first with lenght then alphabetically:
+
+```
+lengthCompare :: String -> String -> Ordering  
+lengthCompare x y = let a = length x `compare` length y   
+                        b = x `compare` y  
+                    in  if a == EQ then b else a
+```
+
+But since Ordering is a monoid:
+
+```
+import Data.Monoid  
+  
+lengthCompare :: String -> String -> Ordering  
+lengthCompare x y = (length x `compare` length y) `mappend`  
+                    (x `compare` y)
+```
+
+Very interesting is the `Foldable` example.
