@@ -144,10 +144,114 @@ Because do expressions are written line by line, they may look like imperative c
 
 In do notation, when we bind monadic values to names, we can utilize pattern matching, just like in let expressions and function parameters.
 
-When pattern matching fails in a do expression, the `fail` function is called. It's part of the Monad type class and it enables failed pattern matching to result in a failure in the context of the current monad instead of making our program crash.
+When pattern matching fails in a do expression, the `fail function is called. It's part of the Monad type class and it enables failed pattern matching to result in a failure in the context of the current monad instead of making our program crash.
 
 
 ### Curiosity
 
 But wait, didn't we say that monads are just beefed up applicative functors? Shouldn't there be a class constraint in there along the lines of class (Applicative m) = > Monad m where so that a type has to be an applicative functor first before it can be made a monad? Well, there should, but when Haskell was made, it hadn't occured to people that applicative functors are a good fit for Haskell so they weren't in there. But rest assured, every monad is an applicative functor, even if the Monad class declaration doesn't say so.
+
+## List Monad
+
+Definition:
+
+```
+instance Monad [] where  
+    return x = [x]  
+    xs >>= f = concat (map f xs)  
+    fail _ = []
+```
+
+And example:
+
+```
+ghci> [3,4,5] >>= \x -> [x,-x]  
+[3,-3,4,-4,5,-5]
+```
+
+And now an example in both >>= notation and do notation:
+
+```
+ghci> [1,2] >>= \n -> ['a','b'] >>= \ch -> return (n,ch)  
+[(1,'a'),(1,'b'),(2,'a'),(2,'b')]
+```
+
+```
+listOfTuples :: [(Int,Char)]  
+listOfTuples = do  
+    n <- [1,2]  
+    ch <- ['a','b']  
+    return (n,ch)
+```
+
+But NOTICE list comprehensions:
+
+```
+ghci> [ (n,ch) | n <- [1,2], ch <- ['a','b'] ]  
+[(1,'a'),(1,'b'),(2,'a'),(2,'b')]
+```
+
+In fact, list comprehensions are just syntactic sugar for using lists as monads. In the end, list comprehensions and lists in do notation translate to using >>= to do computations that feature non-determinism.
+
+But how does filtering works in list comprehensions? To see how filtering in list comprehensions translates to the list monad, we have to check out the `guard` function and the `MonadPlus type class. The MonadPlus type class is for monads that can also act as monoids. Here's its definition:
+
+```
+class Monad m => MonadPlus m where  
+    mzero :: m a  
+    mplus :: m a -> m a -> m a  
+```
+
+List instance of MonadPlus (that acts as monoid):
+
+```
+instance MonadPlus [] where  
+    mzero = []  
+    mplus = (++)
+```
+
+`guard` function definition:
+
+```
+guard :: (MonadPlus m) => Bool -> m ()  
+guard True = return ()  
+guard False = mzero
+```
+
+Check this out:
+
+```
+ghci> guard (5 > 2) :: Maybe ()  
+Just ()  
+ghci> guard (1 > 2) :: Maybe ()  
+Nothing  
+ghci> guard (5 > 2) :: [()]  
+[()]  
+ghci> guard (1 > 2) :: [()]  
+[]
+
+If guard succeeds, the result contained within it is an empty tuple. So then, we use >> to ignore that empty tuple and present something else as the result. However, if guard fails, then so will the return later on, because feeding an empty list to a function with >>= always results in an empty list.
+
+ghci> [1..50] >>= (\x -> guard ('7' `elem` show x) >> return x)  
+[7,17,27,37,47]
+
+ghci> guard (5 > 2) >> return "cool" :: [String]  
+["cool"]  
+ghci> guard (1 > 2) >> return "cool" :: [String]  
+[] 
+```
+
+So filtering in list comprehensions is the same as using guard`.
+
+
+## Monads Laws
+
+Haskell allows any type to be an instance of any type class as long as the types check out. It can't check if the monad laws hold for a type though, so if we're making a new instance of the Monad type class, we have to be reasonably sure that all is well with the monad laws for that type.
+
+_Left identity_: `return x >>= f` is the same damn thing as `f x`
+
+_Right identity_: `m >>= return` is no different than just `m`
+
+Left identity and right identity are basically laws that describe how return should behave. It's an important function for making normal values into monadic ones and it wouldn't be good if the monadic value that it produced did a lot of other stuff.
+
+_Associativity_: Doing `(m >>= f) >>= g` is just like doing `m >>= (\x -> f x >>= g)`
 
