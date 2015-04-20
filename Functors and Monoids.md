@@ -90,7 +90,7 @@ ghci> :t a
 a :: [Integer -> Integer]  
 ghci> fmap (\f -> f 9) a  
 [9,18,27,36]
-``
+```
 
 Note that fmap 'instanciated' by the function type is function composition! That's why for the one above, we can map _functions that take these functions as parameters_ over them.
 
